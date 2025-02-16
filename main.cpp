@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -173,6 +174,29 @@ public:
     }
     return nullptr;
   }
+
+  int depth(Node *node) {
+    int depth = 0;
+    Node *curr = root;
+    while (curr) {
+      if (node->val < curr->val) {
+        curr = curr->left;
+      } else if (node->val > curr->val) {
+        curr = curr->right;
+      } else {
+        return depth;
+      }
+      depth++;
+    }
+    return -1;
+  }
+
+  int height(Node *node) {
+    if (!node) {
+      return -1;
+    }
+    return 1 + std::max(height(node->left), height(node->right));
+  }
 };
 
 int main() {
@@ -182,8 +206,19 @@ int main() {
   Node *root = tree->buildTree(values);
 
   tree->prettyPrint(root);
+  // Node *first = tree->find(97);
+  // std::cout << "depth " << tree->depth(first) << "\t" << first->val << "\n";
+  // std::cout << "height " << tree->height(first) << "\t" << first->val <<
+  // "\n";
+
   root = tree->deleteNode(43);
   root = tree->deleteNode(87);
   // std::cout << root << "\n";
   tree->prettyPrint(root);
+
+  // Node *noder = tree->find(70);
+  // std::cout << "depth " << tree->depth(noder) << "\t" << noder->val << "\n";
+  // std::cout << "height " << tree->height(noder) << "\t" << noder->val <<
+  // "\n"; std::cout << "height " << tree->height(root) << "\t" << root->val <<
+  // "\n";
 }
