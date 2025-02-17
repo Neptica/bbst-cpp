@@ -6,23 +6,30 @@
 
 struct Node {
   int val;
-  Node *parent;
-  Node *left;
-  Node *right;
+  int balance;
+  Node *parent = nullptr;
+  Node *left = nullptr;
+  Node *right = nullptr;
 
   bool operator==(const Node *other) const {
     return val == other->val && parent == other->parent &&
            left == other->left && right == other->right;
   }
 
-  Node(int value, Node *daddy) {
-    parent = daddy;
-    val = value;
-  }
+  Node(int value) { val = value; }
+
+  // ~Node() {
+  //   delete parent;
+  //   delete left;
+  //   delete right;
+  // }
 
   friend std::ostream &operator<<(std::ostream &os, const Node *node) {
     std::stringstream entity;
     entity << "\n\nValue: " << node->val;
+    if (node->balance) {
+      entity << "\nBalance: " << node->balance;
+    }
     entity << "\nParent: ";
     if (node->parent) {
       entity << node->parent->val;
@@ -69,7 +76,7 @@ public:
 
   Node *buildTree(std::vector<int> &numbers) {
     for (int value : numbers) {
-      Node *newNode = new Node(value, nullptr);
+      Node *newNode = new Node(value);
       insertNode(newNode);
     }
     return root;
@@ -100,9 +107,12 @@ public:
         } else {
           std::cout << "duplicate found\n";
           delete node;
+          node = nullptr;
           break;
         }
       }
+      if (node)
+        balanceTree(node->parent); // new node never has children
     }
     return root;
   }
@@ -121,24 +131,31 @@ public:
           successor = successor->left;
         }
 
-        if (deletedNode->parent) {
-          successor->parent->left = successor->right;
+        // Detaching Successor
+        successor->parent->left = successor->right;
+        if (successor->right) {
+          successor->right->parent = successor->parent;
         }
         successor->right = deletedNode->right;
+        deletedNode->right->parent = successor;
       } else {
         successor = deletedNode->right;
       }
-      successor->parent = deletedNode->parent;
       successor->left = deletedNode->left;
       if (deletedNode->left) {
         deletedNode->left->parent = successor;
       }
 
       if (deletedNode->parent) {
-        successor->parent->right = successor;
+        if (deletedNode->parent->right == deletedNode) {
+          deletedNode->parent->right = successor;
+        } else {
+          deletedNode->parent->left = successor;
+        }
       } else {
         root = successor;
       }
+      successor->parent = deletedNode->parent;
 
     } else {
       successor = deletedNode->left;
@@ -157,6 +174,8 @@ public:
     }
     delete deletedNode;
 
+    // WARN: Maybe not sufficient to start balance at successor
+    balanceTree(successor);
     // rebalance(successor);
     return root;
   }
@@ -195,30 +214,121 @@ public:
     if (!node) {
       return -1;
     }
-    return 1 + std::max(height(node->left), height(node->right));
+    int left = height(node->left);
+    int right = height(node->right);
+    node->balance = left - right;
+    return 1 + std::max(left, right);
+  }
+
+  Node *balanceTree(Node *node) {
+    height(node);
+
+    if (node->balance == -2) {
+      if (node->right->balance == 1) {
+        // rotateRightLeft
+        rotateRight(node->right);
+      }
+      node = rotateLeft(node);
+    } else if (node->balance == 2) {
+      if (node->left->balance == -1) {
+        // rotateLeftRight
+        rotateLeft(node->left);
+      }
+      node = rotateRight(node);
+    }
+
+    if (!node->parent) {
+      root = node;
+      return node;
+    }
+    return balanceTree(node->parent);
+  }
+
+  Node *rotateRight(Node *node) {
+    Node *jumpingNode = node->left->right;
+    node->left->parent = node->parent;
+    node->left->right = node;
+    if (node->parent && node->parent->left == node) {
+      node->parent->left = node->left;
+    } else if (node->parent) {
+      node->parent->right = node->left;
+    }
+    node->parent = node->left;
+    node->left = jumpingNode;
+    if (jumpingNode) {
+      jumpingNode->parent = node;
+    }
+    return node->parent;
+  }
+
+  Node *rotateLeft(Node *node) {
+    Node *jumpingNode = node->right->left;
+    node->right->parent = node->parent;
+    node->right->left = node;
+    if (node->parent && node->parent->left == node) {
+      node->parent->left = node->right;
+    } else if (node->parent) {
+      node->parent->right = node->right;
+    }
+    node->parent = node->right;
+    node->right = jumpingNode;
+    if (jumpingNode) {
+      jumpingNode->parent = node;
+    }
+    return node->parent;
   }
 };
 
 int main() {
   Tree *tree = new Tree();
 
-  std::vector<int> values = {43, 57, 87, 97, 27, 4, 70, 90, 91};
+  std::vector<int> values = {43, 57, 87, 27, 30, 4, 70, 90, 89, 91};
   Node *root = tree->buildTree(values);
 
   tree->prettyPrint(root);
-  // Node *first = tree->find(97);
+  // Node *first = tree->find(87);
   // std::cout << "depth " << tree->depth(first) << "\t" << first->val << "\n";
   // std::cout << "height " << tree->height(first) << "\t" << first->val <<
-  // "\n";
+  // "\n"; Node *noder = tree->find(57); std::cout << "depth " <<
+  // tree->depth(noder) << "\t" << noder->val << "\n"; std::cout << "height " <<
+  // tree->height(noder) << "\t" << noder->val << "\n"; std::cout << "height "
+  // << tree->height(root) << "\t" << root->val << "\n";
 
-  root = tree->deleteNode(43);
+  // root = tree->deleteNode(91);
   root = tree->deleteNode(87);
-  // std::cout << root << "\n";
+  tree->prettyPrint(root);
+  Node *newNode = new Node(1);
+  root = tree->insertNode(newNode);
+  tree->prettyPrint(root);
+  newNode = new Node(503);
+  root = tree->insertNode(newNode);
+  tree->prettyPrint(root);
+  newNode = new Node(102);
+  root = tree->insertNode(newNode);
+  tree->prettyPrint(root);
+  newNode = new Node(504);
+  root = tree->insertNode(newNode);
+  tree->prettyPrint(root);
+  newNode = new Node(2);
+  root = tree->insertNode(newNode);
+  tree->prettyPrint(root);
+  newNode = new Node(0);
+  root = tree->insertNode(newNode);
+  tree->prettyPrint(root);
+  newNode = new Node(-1);
+  root = tree->insertNode(newNode);
+  tree->prettyPrint(root);
+  newNode = new Node(-2);
+  root = tree->insertNode(newNode);
+  tree->prettyPrint(root);
+  newNode = new Node(-3);
+  root = tree->insertNode(newNode);
   tree->prettyPrint(root);
 
-  // Node *noder = tree->find(70);
-  // std::cout << "depth " << tree->depth(noder) << "\t" << noder->val << "\n";
-  // std::cout << "height " << tree->height(noder) << "\t" << noder->val <<
-  // "\n"; std::cout << "height " << tree->height(root) << "\t" << root->val <<
-  // "\n";
+  root = tree->deleteNode(1);
+  tree->prettyPrint(root);
+  root = tree->deleteNode(-1);
+  tree->prettyPrint(root);
+  root = tree->deleteNode(2);
+  tree->prettyPrint(root);
 }
